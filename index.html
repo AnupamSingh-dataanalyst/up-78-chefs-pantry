@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>UP-78 Chef's Pantry</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#f5e6c8; font-family:'Georgia',serif; min-height:100vh; }
+
+  .header { background:#7a0e2a; padding:30px 20px; text-align:center; }
+  .established { color:#c9a84c; font-size:11px; letter-spacing:3px; margin-bottom:10px; }
+  .app-title { color:#f5e6c8; font-size:42px; font-style:italic; line-height:1.1; margin-bottom:8px; }
+  .app-subtitle { color:#c9a84c; font-style:italic; font-size:14px; }
+  .diamond-row { display:flex; justify-content:center; gap:8px; margin-top:16px; color:#c9a84c; font-size:12px; }
+
+  .section { background:#f5e6c8; padding:24px 16px; }
+  .section-label { text-align:center; color:#7a0e2a; font-size:11px; letter-spacing:3px; margin-bottom:6px; }
+  .section-title { text-align:center; color:#3a1a0a; font-size:26px; margin-bottom:20px; }
+
+  .ingredients-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:20px; }
+  .ing-btn { background:#fff8ee; border:2px solid #c9a84c; border-radius:30px; padding:10px 6px; font-size:13px; color:#3a1a0a; cursor:pointer; transition:all 0.2s; text-align:center; }
+  .ing-btn.selected { background:#7a0e2a; color:#f5e6c8; border-color:#7a0e2a; }
+
+  .custom-row { display:flex; gap:10px; margin-bottom:20px; }
+  .custom-input { flex:1; padding:12px 16px; border:2px solid #c9a84c; border-radius:10px; background:#fff8ee; font-size:14px; color:#333; outline:none; }
+  .add-btn { background:#7a0e2a; color:#f5e6c8; border:none; border-radius:10px; padding:12px 18px; font-size:20px; cursor:pointer; }
+
+  .selected-tags { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px; min-height:20px; }
+  .tag { background:#7a0e2a; color:#f5e6c8; border-radius:20px; padding:6px 14px; font-size:13px; display:flex; align-items:center; gap:6px; }
+  .tag span { cursor:pointer; font-size:16px; line-height:1; }
+
+  .suggest-btn { width:100%; background:#7a0e2a; color:#f5e6c8; border:none; border-radius:12px; padding:18px; font-size:18px; cursor:pointer; letter-spacing:1px; display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:10px; }
+  .suggest-btn:disabled { opacity:0.6; cursor:not-allowed; }
+
+  .divider { display:flex; align-items:center; gap:10px; margin:24px 0 16px; }
+  .divider hr { flex:1; border:none; border-top:1px solid #c9a84c; opacity:0.4; }
+  .divider span { color:#c9a84c; font-size:12px; }
+
+  .recipe-card { background:#fff8ee; border:1px solid #c9a84c; border-radius:12px; padding:16px; margin-bottom:14px; }
+  .recipe-name { color:#7a0e2a; font-size:18px; font-style:italic; margin-bottom:10px; }
+  .recipe-ings-title { font-size:11px; letter-spacing:2px; color:#888; margin-bottom:6px; }
+  .recipe-ings { color:#3a1a0a; font-size:14px; line-height:1.6; }
+
+  .loading { text-align:center; color:#7a0e2a; font-style:italic; padding:20px; font-size:16px; }
+  .error { background:#ffe0e0; border:1px solid #e00; border-radius:10px; padding:14px; color:#900; font-size:14px; margin-top:10px; }
+
+  .footer { background:#7a0e2a; padding:20px; text-align:center; }
+  .footer-text { color:#c9a84c; font-style:italic; font-size:14px; }
+  .footer-sub { color:#f5e6c8; font-size:11px; margin-top:4px; opacity:0.7; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="established">ESTABLISHED 2026</div>
+  <div class="app-title">UP-78<br>Chef's Pantry</div>
+  <div class="app-subtitle">Culinary recommendations from your fridge</div>
+  <div class="diamond-row">♦ ◇ ♦</div>
+</div>
+
+<div class="section">
+  <div class="section-label">THE PANTRY</div>
+  <div class="section-title">Your Ingredients</div>
+
+  <div class="ingredients-grid" id="quickGrid"></div>
+
+  <div class="custom-row">
+    <input class="custom-input" id="customInput" placeholder="Add custom ingredient..."/>
+    <button class="add-btn" onclick="addCustom()">+</button>
+  </div>
+
+  <div class="selected-tags" id="selectedTags"></div>
+
+  <div class="divider"><hr><span>♦ ◇ ♦</span><hr></div>
+
+  <button class="suggest-btn" id="suggestBtn" onclick="suggestRecipes()">
+    🍳 Suggest Recipes
+  </button>
+
+  <div id="results"></div>
+</div>
+
+<div class="footer">
+  <div class="footer-text">Bon Appétit</div>
+  <div class="footer-sub">UP-78 Chef's Pantry · 2026</div>
+</div>
+
+<script>
+const QUICK = [
+  "Tomato","Aloo","Pyaaz","Lahsun","Anda","Chicken",
+  "Mutton","Machli","Paneer","Dal","Chawal","Bread",
+  "Adrak","Dahi","Ghee","Butter","Mirch","Haldi",
+  "Jeera","Sarson"
+];
+
+let selected = new Set();
+
+const grid = document.getElementById('quickGrid');
+QUICK.forEach(ing => {
+  const btn = document.createElement('button');
+  btn.className = 'ing-btn';
+  btn.textContent = ing;
+  btn.onclick = () => toggleIng(ing, btn);
+  grid.appendChild(btn);
+});
+
+function toggleIng(ing, btn) {
+  if (selected.has(ing)) { selected.delete(ing); btn.classList.remove('selected'); }
+  else { selected.add(ing); btn.classList.add('selected'); }
+  renderTags();
+}
+
+function addCustom() {
+  const inp = document.getElementById('customInput');
+  const val = inp.value.trim();
+  if (!val) return;
+  selected.add(val);
+  inp.value = '';
+  renderTags();
+}
+
+document.getElementById('customInput').addEventListener('keypress', e => {
+  if (e.key === 'Enter') addCustom();
+});
+
+function renderTags() {
+  const container = document.getElementById('selectedTags');
+  container.innerHTML = '';
+  selected.forEach(ing => {
+    const tag = document.createElement('div');
+    tag.className = 'tag';
+    tag.innerHTML = `${ing} <span onclick="removeTag('${ing}')">×</span>`;
+    container.appendChild(tag);
+  });
+}
+
+function removeTag(ing) {
+  selected.delete(ing);
+  document.querySelectorAll('.ing-btn').forEach(btn => {
+    if (btn.textContent === ing) btn.classList.remove('selected');
+  });
+  renderTags();
+}
+
+async function suggestRecipes() {
+  if (selected.size === 0) { alert('Please select at least one ingredient!'); return; }
+  const btn = document.getElementById('suggestBtn');
+  const results = document.getElementById('results');
+  btn.disabled = true;
+  results.innerHTML = '<div class="loading">🍳 Recipes dhundh rahe hain...</div>';
+
+  try {
+    const res = await fetch('/.netlify/functions/recipe', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ ingredients: Array.from(selected) })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    results.innerHTML = `
+      <div class="divider"><hr><span>♦ Recipes ♦</span><hr></div>
+      ${data.recipes.map(r => `
+        <div class="recipe-card">
+          <div class="recipe-name">🍽 ${r.name}</div>
+          <div class="recipe-ings-title">INGREDIENTS</div>
+          <div class="recipe-ings">${r.ingredients}</div>
+        </div>
+      `).join('')}
+    `;
+  } catch(err) {
+    results.innerHTML = `<div class="error">❌ Error: ${err.message}</div>`;
+  }
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
